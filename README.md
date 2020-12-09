@@ -3,7 +3,7 @@ A python3 program that converts paths of svg files into gcode
 
 svg2gcode.py converts all svg path element in gcode.
 
-Output gcode can be re-arranged ( e.g. resized, offsetted to 0,0) using [https://github.com/fzellini/gcode-doctor] (gcode-doctor)
+Output gcode can be re-arranged ( e.g. resized, offsetted to 0,0) using [https://github.com/fzellini/gcode-doctor](gcode-doctor)
 
 ```
 python3 svg2gcode.py -h
