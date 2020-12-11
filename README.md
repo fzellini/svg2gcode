@@ -7,7 +7,7 @@ Output gcode can be re-arranged ( e.g. resized, offsetted to 0,0) using [gcode-d
 
 ```
 python3 svg2gcode.py -h
-usage: svg2gcode.py [-h] [--id-re ID_RE] [--g01 G01] [--pre PRE] [--post POST]
+usage: svg2gcode.py [-h] [--xpath XPATH] [--g01 G01] [--pre PRE] [--post POST]
                     svgfile gcodefile
 
 svg2code
@@ -18,7 +18,7 @@ positional arguments:
 
 optional arguments:
   -h, --help     show this help message and exit
-  --id-re ID_RE  process only id matching this re (default: .*)
+  --xpath XPATH  process this xpath (e.g. ".//*[@id='g7167']") (default: ./)
   --g01 G01      append to first G01 path (default: F1000 S1000)
   --pre PRE      gcode prelude (default: G21 G92 X0 Y0 M3 )
   --post POST    gcode prelude (default: M5 )
