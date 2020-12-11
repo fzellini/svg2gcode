@@ -42,13 +42,13 @@ class matrix:
             return new_matrix
 
 
-def normalize(string):
+def normalize(s):
     """Normalize a string corresponding to an array of various values."""
-    string = string.replace('E', 'e')
-    string = re.sub('(?<!e)-', ' -', string)
-    string = re.sub('[ \n\r\t,]+', ' ', string)
-    string = re.sub(r'(\.[0-9-]+)(?=\.)', r'\1 ', string)
-    return string.strip()
+    s = s.replace('E', 'e')
+    s = re.sub('(?<!e)-', ' -', s)
+    s = re.sub('[ \n\r\t,]+', ' ', s)
+    s = re.sub(r'(\.[0-9-]+)(?=\.)', r'\1 ', s)
+    return s.strip()
 
 
 UNITS = {
@@ -218,6 +218,7 @@ class GC:
     """
     Plotting Context
     each context has a transformation matrix m
+    https://www.w3.org/TR/SVG11/coords.html
     """
     # http://www.w3.org/TR/SVG/coords.html#TransformMatrixDefined
     def __init__(self):
@@ -230,31 +231,73 @@ class GC:
         self.m = [[self.a, self.c, self.e], [self.b, self.d, self.f], [0.0, 0.0, 1.0]]
         self.vxy = []   # xy accumulator vector
         self.vvxy = [self.vxy]  # vector of vectors
-        self.cgv=[]
+        self.cgv = []
 
     def matrix(self, a, b, c, d, e, f):
         tm = [[a, c, e], [b, d, f], [0.0, 0.0, 1.0]]
-        self.m = tm
+        self.m = matrix.mult(self.m, tm)
 
     def translate(self, tx, ty):
         # or [1 0 0 1 tx ty], where tx and ty are the distances to translate coordinates in X and Y, respectively.
-        tm = [[1, 0, tx], [0, 1, ty], [0, 0, 1]]
-        self.m = tm
+        tm = [[1, 0, tx], [0, 1, ty], [0.0, 0.0, 1.0]]
+        self.m = matrix.mult(self.m, tm)
 
     def scale(self, sx, sy):
         # or [sx 0 0 sy 0 0]. One unit in the X and Y directions in the new coordinate system equals sx and sy units in the previous coordinate
         tm = [[sx, 0, 0], [0, sy, 0], [0, 0, 1]]
-        self.m = tm
+        self.m = matrix.mult(self.m, tm)
 
     def rotate(self, a):
         # rotation
         tm = [[math.cos(a), -math.sin(a), 0], [math.sin(a), math.cos(a), 0], [0, 0, 1]]
-        self.m = tm
+        self.m = matrix.mult(self.m, tm)
+
+    def skewX(self, a):
+        tm = [[1, math.tan(a), 0], [0, 1, 0], [0, 0, 1]]
+        self.m = matrix.mult(self.m, tm)
+
+    def skewY(self, a):
+        tm = [[1, 0, 0], [math.tan(a), 1, 0], [0, 0, 1]]
+        self.m = matrix.mult(self.m, tm)
 
     def transform(self, xy):
         tm = [[xy[0]], [xy[1]], [1]]
         tmx = matrix.mult(self.m, tm)
         return tmx[0][0], tmx[1][0]
+
+    def addtransforms(self, transform):
+        # print ("addtransformation")
+        transformations = transform.split(")")
+        for transformation in transformations:
+            for ttype in (
+                    "scale", "translate", "matrix", "rotate", "skewX",
+                    "skewY"):
+                if ttype in transformation:
+                    transformation = transformation.replace(ttype, "")
+                    transformation = transformation.replace("(", "")
+                    transformation = normalize(transformation).strip() + " "
+                    values = []
+                    while transformation:
+                        value, transformation = transformation.split(" ", 1)
+                        # TODO: manage the x/y sizes here
+                        values.append(value)
+                    if ttype == 'translate':
+                        self.translate(float(values[0]), float(values[1]))
+                    elif ttype == 'scale':
+                        self.scale((float(values[0])), float(values[1]))
+                    elif ttype == 'rotate':
+                        self.rotate(math.radians(float(values[0])))
+                    elif ttype == 'skewX':
+                        self.skewX(math.radians(float(values[0])))
+                    elif ttype == 'skewY':
+                        self.skewY(math.radians(float(values[0])))
+                    elif ttype == 'matrix':
+                        # print ("matrix transformation")
+                        a, b, c, d = convertToFloats(values[:4])
+                        e, f = convertToFloats(values[4:])
+                        self.matrix(a, b, c, d, e, f)
+                    else:
+                        pass
 
     def plot(self, xy):
         # print (xy)
@@ -276,9 +319,21 @@ class GC:
             outv.append("[new-path]")
             for i in range(len(v)):
                 if isinstance(v[i], tuple):
+                    #print("before {}".format(v[i]))
                     outv.append(self.transform(v[i]))
+                    #print("after {}".format(self.transform(v[i])))
                 elif isinstance(v[i], GC):
-                    outv += (v[i].applytransform())
+                    vout = v[i].applytransform()
+                    vout2 = []
+                    for v2 in vout:
+                        if isinstance(v2, tuple):
+                            vout2.append(self.transform(v2))
+                        elif isinstance(v2, GC):
+                            print ("could not happen")
+                            pass
+                        else:
+                            vout2.append(v2)
+                    outv += vout2
                 else:
                     outv.append(v[i])
         return outv
@@ -386,53 +441,12 @@ def normaliseSvgPath(attr):
     return res
 
 
-def normalize(s=None):
-    """Normalize a string corresponding to an array of various vaues."""
-    s = s.replace("-", " -")
-    s = s.replace(",", " ")
-
-    while "  " in s:
-        s = s.replace("  ", " ")
-
-    s = s.replace("e -", "e-")
-
-    return s
 
 
-def dotransform(transform, gc):
-    # print ("dotransform2")
-    transformations = transform.split(")")
-    for transformation in transformations:
-        for ttype in (
-                "scale", "translate", "matrix", "rotate", "skewX",
-                "skewY"):
-            if ttype in transformation:
-                transformation = transformation.replace(ttype, "")
-                transformation = transformation.replace("(", "")
-                transformation = normalize(transformation).strip() + " "
-                values = []
-                while transformation:
-                    value, transformation = transformation.split(" ", 1)
-                    # TODO: manage the x/y sizes here
-                    values.append(value)
-                if ttype == 'translate':
-                    gc.translate(float(values[0]), float(values[1]))
-                elif ttype == 'rotate':
-                    gc.rotate(math.radians(float(values[0])))
-                elif ttype == 'matrix':
-                    # print ("matrix transformation")
-                    a, b, c, d = convertToFloats(values[:4])
-                    e, f = convertToFloats(values[4:])
-                    gc.matrix(a, b, c, d, e, f)
-                    pass
-                else:
-                    pass
-
-
-def doPath(path):
+def doPath(path, gc):
     """ do a path"""
 
-    gc = GC()
+#    gc = GC()
     # px,py = current point
     px = 0
     py = 0
@@ -591,7 +605,7 @@ def doPath(path):
     if len(gc.vxy):
         gc.newvxy()
 
-    return gc
+ #   return gc
 
 
 recursion = 0
@@ -602,44 +616,40 @@ def print_recursion (str):
     print(s+str)
 
 
-id_REX = None
-
-
 def doElements(elements):
     global recursion
 
     recursion += 1
-
-    gc = GC()
+    gcm = GC()
     for entry in elements:
-
+        gc = GC()
+        gcm.addchild(gc)
         # do element
         node_id = entry.get('id')
         if node_id is None:
             node_id = "unspecified"
-        if not re.match(id_REX, node_id):
-            continue
+        print_recursion("rendering id \"{}\"".format(node_id))
+        transform = entry.get('transform')
+        if transform is not None:
+            print_recursion("... with transform {} :{}".format(node_id, transform))
+            gc.addtransforms(transform)
 
         childrens = list(entry)
+        print_recursion ("childrens :{}".format(len(childrens)))
         if len(childrens):
-            gc.addchild(doElements(childrens))
+            gc.addchild(doElements(entry))
 
         if entry.tag == '{http://www.w3.org/2000/svg}path':
-
-            path = entry.get('d')
-            if path:
-                print("rendering path id \"{}\"".format(node_id))
+            d = entry.get('d')
+            if d:
+                #print_recursion("rendering path id \"{}\"".format(node_id))
                 gc.comment("path id: {}".format(node_id))
-                gc.addchild(doPath(path))
+                doPath(d, gc)
 
-        if 'transform' in entry.attrib:
-            transform = entry.attrib['transform']
-            # print_recursion("dotransform {}".format(transform))
-            dotransform(transform, gc)
         # all elements done
 
     recursion -= 1
-    return gc
+    return gcm
 
 class SVG:
     def __init__(self, gc, width, height):
@@ -648,10 +658,7 @@ class SVG:
         self.height = height
 
 
-def doSVG(s, id_re):
-    global id_REX
-
-    id_REX = id_re
+def doSVG(s, xpath):
 
     tree = etree.parse(s)
     svgtree = tree.getroot()
@@ -672,7 +679,10 @@ def doSVG(s, id_re):
 
     #print("width {}, height {}".format(width, height))
 
-    gc = doElements(svgtree)
+    # .// *[ @ id = 'g7167']
+    xp = svgtree.findall(xpath)
+    gc = doElements(xp)
+    # gc = doElements(svgtree)
 
     svg = SVG(gc, width, height)
     return svg

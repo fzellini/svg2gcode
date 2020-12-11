@@ -10,7 +10,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='svg2code', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("svgfile", help="input svg file")
     parser.add_argument("gcodefile", help="output gcode")
-    parser.add_argument("--id-re", default=".*", help="process only id matching this re")
+    parser.add_argument("--xpath", default="./", help="process this xpath (e.g. \".//*[@id='g7167']\")")
     parser.add_argument("--g01", default="F1000 S1000", help="append to first G01 path")
     parser.add_argument("--pre", default="G21\nG92 X0 Y0\nM3\n", help="gcode prelude")
     parser.add_argument("--post", default="M5\n", help="gcode prelude")
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
     g01append = " "+args.g01
-    svg = doSVG(args.svgfile, args.id_re)
+    svg = doSVG(args.svgfile, args.xpath)
     pts = svg.gc.applytransform()
     op = "G00"
     with open(args.gcodefile, "w") as h:
