@@ -284,7 +284,13 @@ class GC:
                     if ttype == 'translate':
                         self.translate(float(values[0]), float(values[1]))
                     elif ttype == 'scale':
-                        self.scale((float(values[0])), float(values[1]))
+                        if len(values) == 1:
+                            self.scale((float(values[0])), float(values[0]))
+                        elif len(value) == 2:
+                            self.scale((float(values[0])), float(values[1]))
+                        else:
+                            pass
+
                     elif ttype == 'rotate':
                         self.rotate(math.radians(float(values[0])))
                     elif ttype == 'skewX':
