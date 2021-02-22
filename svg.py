@@ -437,7 +437,8 @@ def normaliseSvgPath(attr):
             while i < len(a):
                 if a[i] not in opKeys:
                     el = lastel
-                    if lastel in ('m', 'l'): el = 'l'
+                    if lastel == 'm': el = 'l'
+                    if lastel == 'M': el = 'L'
                     res.append(el)
                     res.append(a[i:i + ops[el]])
                     i = i + ops[el]
@@ -445,8 +446,6 @@ def normaliseSvgPath(attr):
                     break
 
     return res
-
-
 
 
 def doPath(path, gc):
